@@ -17,3 +17,10 @@ main.js
 
 
 
+
+# local dev: measurement harnesses and the test-vault deploy helper,
+# all specific to this machine
+deploy.mjs
+tests/parser/vault-audit.local.test.ts
+tests/parser/qualifier-survey.local.test.ts
+tests/parser/gap-analysis.local.test.ts

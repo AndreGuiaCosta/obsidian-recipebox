@@ -4,7 +4,8 @@
  */
 import { ParsedIngredient } from "../types";
 import { parseLeadingQuantity } from "./quantity-parse";
-import { UNIT_SYNONYMS } from "./ingredient-units";
+import { ParseVocabulary, PhraseTable, normalisePhrase } from "./unit-table";
+import { extractQualifiers } from "./ingredient-qualifiers";
 import {
 	stripListMarkers,
 	extractInlineNotes,
@@ -14,27 +15,28 @@ import {
 	normaliseName,
 } from "./ingredient-clean";
 
-export function consumeUnit(rest: string): { unit: string; remaining: string } {
-	const lower = rest.toLowerCase();
-
-	// Two-word fluid ounce forms
-	for (const twoWord of ["fluid ounces", "fluid ounce", "fl oz"]) {
-		if (lower.startsWith(twoWord)) {
-			return { unit: "fl oz", remaining: rest.slice(twoWord.length).trim() };
-		}
+// Longest-first over whole words, so "colher de sopa" is preferred to "colher"
+// and multi-word forms like "fluid ounces" need no special case.
+export function consumeUnit(rest: string, units: PhraseTable): { unit: string; remaining: string } {
+	const words: { text: string; end: number }[] = [];
+	const wordPattern = /\S+/g;
+	let match: RegExpExecArray | null;
+	while (words.length < units.maxWords && (match = wordPattern.exec(rest)) !== null) {
+		words.push({ text: match[0], end: match.index + match[0].length });
 	}
 
-	const token = rest.split(/\s+/)[0];
-	const strippedToken = token.replace(/\.+$/, "");
-	const canonical = UNIT_SYNONYMS[strippedToken.toLowerCase()];
-	if (canonical !== undefined) {
-		return { unit: canonical, remaining: rest.slice(token.length).trim() };
+	for (let count = words.length; count >= 1; count--) {
+		const form = normalisePhrase(words.slice(0, count).map((w) => w.text).join(" "));
+		const canonical = units.forms.get(form);
+		if (canonical !== undefined) {
+			return { unit: canonical, remaining: rest.slice(words[count - 1].end).trim() };
+		}
 	}
 
 	return { unit: "", remaining: rest };
 }
 
-export function parseIngredientLine(line: string): ParsedIngredient | null {
+export function parseIngredientLine(line: string, vocabulary: ParseVocabulary): ParsedIngredient | null {
 	const raw = line;
 
 	let text = stripListMarkers(line);
@@ -48,20 +50,25 @@ export function parseIngredientLine(line: string): ParsedIngredient | null {
 	const { cleaned: afterNotes, note } = extractInlineNotes(text);
 	text = afterNotes;
 
-	const { quantity, rest: afterQty } = parseLeadingQuantity(text);
-	text = stripOf(afterQty);
+	const { quantity, rest: afterQty } = parseLeadingQuantity(text, vocabulary.numerals);
+	text = stripOf(afterQty, vocabulary.prepositions);
 
-	const { unit, remaining: afterUnit } = consumeUnit(text);
-	text = stripOf(afterUnit);
+	const { unit, remaining: afterUnit } = consumeUnit(text, vocabulary.units);
+	text = stripOf(afterUnit, vocabulary.prepositions);
 
 	// Strip trailing punctuation
 	text = text.replace(/[,;:.]+$/, "").trim();
 
-	const name = normaliseName(text);
+	// Qualifiers move to the note so the grocery list merges on what is bought,
+	// while the recipe view still shows how to prepare it.
+	const split = extractQualifiers(normaliseName(text), vocabulary.qualifiers);
+	const name = split.name;
 	if (!name) return null;
 
 	// A quantity with nothing else attached is not a valid ingredient
 	if (quantity !== null && !name) return null;
 
-	return { quantity, unit, name, note, tags, raw };
+	const notes = [note, ...split.qualifiers].filter((n): n is string => !!n);
+
+	return { quantity, unit, name, note: notes.length > 0 ? notes.join(", ") : null, tags, raw };
 }
