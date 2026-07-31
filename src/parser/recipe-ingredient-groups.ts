@@ -4,6 +4,7 @@
  */
 import { IngredientGroup } from "../types";
 import { findHeadingIndex } from "./recipe-heading-search";
+import { findRecipeMdIngredients } from "./recipemd-sections";
 
 export interface IngredientSplit {
 	before: string;
@@ -14,11 +15,46 @@ export interface IngredientSplit {
 const LIST_ITEM_RE = /^[-*+]\s|^\d+\.\s/;
 const HEADING_RE = /^(#{1,6})\s+(.+?)(?:\s+#+)?$/;
 
+/** Splits a run of ingredient lines into groups, each headed by a heading line. */
+function collectGroups(lines: string[]): IngredientGroup[] {
+	const groups: IngredientGroup[] = [];
+	let current: IngredientGroup = { heading: null, lines: [] };
+
+	for (const line of lines) {
+		const heading = line.match(HEADING_RE);
+		if (heading) {
+			if (current.heading !== null || current.lines.length > 0) groups.push(current);
+			current = { heading: heading[2].trim(), lines: [] };
+		} else if (LIST_ITEM_RE.test(line)) {
+			current.lines.push(line);
+		}
+	}
+
+	if (current.heading !== null || current.lines.length > 0) groups.push(current);
+	return groups.filter((g) => g.lines.length > 0 || g.heading !== null);
+}
+
 export function splitBodyAroundIngredients(body: string, headingName: string): IngredientSplit {
 	const lines = body.split("\n");
 	const { index: headingIdx, level: headingLevel } = findHeadingIndex(lines, headingName);
 
 	if (headingIdx < 0) {
+		// RecipeMD keeps its ingredients between two thematic breaks rather than
+		// under a heading; without this the whole note counted as "before" and the
+		// recipe view showed no ingredients at all.
+		const recipeMd = findRecipeMdIngredients(lines);
+		if (recipeMd) {
+			// Headings inside the block title ingredient groups, exactly as they do
+			// under an ingredients heading.
+			const groups = collectGroups(lines.slice(recipeMd.start, recipeMd.end));
+			if (groups.length > 0) {
+				return {
+					before: lines.slice(0, recipeMd.start).join("\n"),
+					groups,
+					after: lines.slice(recipeMd.end).join("\n"),
+				};
+			}
+		}
 		return { before: body, groups: [], after: "" };
 	}
 
