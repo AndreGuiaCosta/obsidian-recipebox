@@ -2,19 +2,20 @@ import { describe, it, expect } from "vitest";
 import { findRecipeMdIngredients } from "../../src/parser/recipemd-sections";
 import { extractIngredientLines } from "../../src/parser/recipe-ingredients";
 import { splitBodyAroundIngredients } from "../../src/parser/recipe-ingredient-groups";
+import { splitBodyAroundInstructions } from "../../src/parser/recipe-instruction-groups";
 
 const RECIPE_MD = [
-	"# Bolonhesa",
+	"# Bolognese",
 	"",
 	"---",
 	"",
-	"- *400 g* carne picada",
-	"- *1* cebola",
+	"- *400 g* minced beef",
+	"- *1* onion",
 	"",
 	"---",
 	"",
-	"1. Refogar a cebola.",
-	"2. Juntar a carne.",
+	"1. Fry the onion.",
+	"2. Add the beef.",
 ].join("\n");
 
 const WITH_HEADING = [
@@ -47,8 +48,8 @@ describe("findRecipeMdIngredients", () => {
 describe("extractIngredientLines without a heading", () => {
 	it("returns only the RecipeMD ingredient block, not the instructions", () => {
 		expect(extractIngredientLines(RECIPE_MD, "Ingredients")).toEqual([
-			"- *400 g* carne picada",
-			"- *1* cebola",
+			"- *400 g* minced beef",
+			"- *1* onion",
 		]);
 	});
 
@@ -65,10 +66,10 @@ describe("splitBodyAroundIngredients without a heading", () => {
 	it("yields one group from the RecipeMD block", () => {
 		const split = splitBodyAroundIngredients(RECIPE_MD, "Ingredients");
 		expect(split.groups).toEqual([
-			{ heading: null, lines: ["- *400 g* carne picada", "- *1* cebola"] },
+			{ heading: null, lines: ["- *400 g* minced beef", "- *1* onion"] },
 		]);
-		expect(split.before).toContain("# Bolonhesa");
-		expect(split.after).toContain("1. Refogar a cebola.");
+		expect(split.before).toContain("# Bolognese");
+		expect(split.after).toContain("1. Fry the onion.");
 	});
 
 	it("returns no groups when the note is neither RecipeMD nor headed", () => {
@@ -106,5 +107,36 @@ describe("RecipeMD spec conformance", () => {
 
 	it("still requires at least one ingredient after a lone break", () => {
 		expect(findRecipeMdIngredients(["# T", "---", "", ""])).toBeNull();
+	});
+});
+
+describe("RecipeMD instructions", () => {
+	it("flags a RecipeMD split and hands on the method without the closing break", () => {
+		const split = splitBodyAroundIngredients(RECIPE_MD, "Ingredients");
+		expect(split.isRecipeMd).toBe(true);
+		expect(split.after.trim().startsWith("---")).toBe(false);
+		expect(split.after).toContain("1. Fry the onion.");
+	});
+
+	it("does not flag a heading-based note", () => {
+		expect(splitBodyAroundIngredients(WITH_HEADING, "Ingredients").isRecipeMd).toBe(false);
+	});
+
+	it("treats everything after the block as one unnamed instruction group", () => {
+		const split = splitBodyAroundIngredients(RECIPE_MD, "Ingredients");
+		const instructions = splitBodyAroundInstructions(split.after, "Instructions", split.isRecipeMd);
+		expect(instructions.groups).toEqual([
+			{ heading: null, headingLevel: 0, steps: ["Fry the onion.", "Add the beef."] },
+		]);
+	});
+
+	it("leaves the same text alone when the note is not RecipeMD", () => {
+		const split = splitBodyAroundIngredients(RECIPE_MD, "Ingredients");
+		expect(splitBodyAroundInstructions(split.after, "Instructions", false).groups).toEqual([]);
+	});
+
+	it("yields no instructions for a recipe that has none", () => {
+		const split = splitBodyAroundIngredients(NO_INSTRUCTIONS, "Ingredients");
+		expect(splitBodyAroundInstructions(split.after, "Instructions", split.isRecipeMd).groups).toEqual([]);
 	});
 });
