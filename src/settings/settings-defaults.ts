@@ -110,6 +110,7 @@ export const DEFAULT_SETTINGS: RecipeBoxSettings = {
 
 	importerTemplatePath: "",
 	importerDefaultFolder: "Recipes",
+	importerUseRecipeMd: false,
 	downloadImagesOnImport: true,
 
 	headerBadges: [

@@ -55,7 +55,7 @@ function buildStep(lines: string[]): string {
  * method stops and trailing sections (Notes, Cook History, anything the user
  * added) begin. Returns lines.length when the method runs to the end.
  */
-function findSectionBoundary(lines: string[], from: number, sectionLevel: number): number {
+export function findSectionBoundary(lines: string[], from: number, sectionLevel: number): number {
 	for (let i = from; i < lines.length; i++) {
 		const hMatch = lines[i].match(HEADING_RE);
 		if (hMatch && hMatch[1].length <= sectionLevel) return i;
@@ -110,7 +110,7 @@ function collectGroups(lines: string[], sectionLevel: number): InstructionGroup[
 //
 // Deliberately a constant rather than derived from the note's own title, since
 // cleanNoteBody may already have stripped that h1 before this runs.
-const RECIPEMD_SECTION_LEVEL = 2;
+export const RECIPEMD_SECTION_LEVEL = 2;
 
 /**
  * RecipeMD's own reading of the method is "everything after the second thematic

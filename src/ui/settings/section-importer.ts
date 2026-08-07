@@ -29,6 +29,16 @@ export function renderSectionImporter(
 			});
 
 		new Setting(body)
+			.setName("Save imports as RecipeMD")
+			.setDesc("Starting state of the import modal's format checkbox. RecipeMD separates the ingredients with horizontal rules instead of headings. A custom template above overrides this.")
+			.addToggle((t) => {
+				t.setValue(settings.importerUseRecipeMd).onChange(async (v) => {
+					settings.importerUseRecipeMd = v;
+					await save();
+				});
+			});
+
+		new Setting(body)
 			.setName("Default import folder")
 			.setDesc("Where imported recipes are saved. Leave empty to use the first configured recipe folder.")
 			.addText((t) => {

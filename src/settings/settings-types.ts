@@ -140,6 +140,8 @@ export interface RecipeBoxSettings {
 	// Importer
 	importerTemplatePath: string;
 	importerDefaultFolder: string;
+	/** Default state of the import modal's RecipeMD checkbox. Ignored when importerTemplatePath is set. */
+	importerUseRecipeMd: boolean;
 	downloadImagesOnImport: boolean;
 
 	// Header badges
