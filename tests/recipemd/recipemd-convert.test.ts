@@ -210,6 +210,33 @@ describe("convertNoteToRecipeMd", () => {
 		expect(after.ingredients).toEqual([{ heading: null, lines: ["- flour", "- sugar"] }]);
 	});
 
+	// The method used to be cut at any heading-looking line, so a code block
+	// holding one was split in two by the method/trailing boundary and a blank
+	// line landed inside it -- written straight to the user's note on disk.
+	it("carries a fenced code block in the method through untouched", () => {
+		const block = "```sh\n# build the sauce\nmake sauce\n\n\n\nmake more\n```";
+		const raw = `## Ingredients\n- flour\n## Instructions\n1. Run this:\n\n${block}\n\n2. Serve.\n`;
+
+		const out = convert(raw);
+		expect(out).toContain(block);
+		expect(reparse(out).trailing).toBe("");
+	});
+
+	it("does not rehead a heading-looking line inside a method code block", () => {
+		// `# Instructions` puts the real sub-heading at level 2, so it has to shift
+		// to 3. Counting the fenced `# not a heading` as the shallowest heading
+		// would make the shift 2 instead, moving both lines.
+		const raw = "# Ingredients\n- flour\n# Instructions\n## Sauce\n1. Run:\n\n```sh\n# not a heading\n```\n";
+		const out = convert(raw);
+		expect(out).toContain("\n# not a heading\n");
+		expect(out).toContain("### Sauce");
+	});
+
+	it("keeps blank runs inside the method instead of collapsing them", () => {
+		const raw = "## Ingredients\n- flour\n## Instructions\n1. Mix.\n\n\n\n2. Rest.\n";
+		expect(convert(raw)).toContain("1. Mix.\n\n\n\n2. Rest.");
+	});
+
 	it("converts a note whose headings are the configured non-English ones", () => {
 		const ptSettings = { ...DEFAULT_SETTINGS, ingredientsHeading: "Ingredientes", instructionsHeading: "Instruções" };
 		const raw = "## Ingredientes\n- 400 g de grão\n- Sal q.b.\n## Instruções\n1. Cozinhe.\n";

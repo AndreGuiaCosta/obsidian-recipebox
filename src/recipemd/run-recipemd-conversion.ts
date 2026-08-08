@@ -31,10 +31,6 @@ export async function runRecipeMdConversion(app: App, file: TFile, settings: Rec
 		new Notice(`Cannot convert ${file.basename}: ${result.reason}`);
 		return;
 	}
-	if (result.content === raw) {
-		new Notice(`${file.basename} is already in RecipeMD format.`);
-		return;
-	}
 
 	new ConfirmModal(
 		app,
@@ -45,12 +41,31 @@ export async function runRecipeMdConversion(app: App, file: TFile, settings: Rec
 			destructive: true,
 			onConfirm: () => {
 				void (async () => {
+					// Holds the finished notice text rather than a flag, so the
+					// wording matches the pre-modal checks above. In an object because
+					// the callback below runs inside vault.process, and a plain `let`
+					// assigned in a closure is not narrowed usefully once it returns.
+					const outcome: { failure: string | null } = { failure: null };
 					try {
-						await app.vault.modify(file, result.content);
-						new Notice(`${file.basename} converted to RecipeMD.`);
+						// The conversion is recomputed from the content vault.process
+						// hands over rather than reusing `result.content` from the read
+						// above. The note can be edited while the confirm modal is open,
+						// and writing the earlier string would discard those edits
+						// wholesale. Recomputing can now find the note unconvertible,
+						// which means leaving it exactly as it stands.
+						await app.vault.process(file, (current) => {
+							const fresh = convertNoteToRecipeMd(current, file.basename, settings);
+							if (fresh.kind === "converted") return fresh.content;
+							outcome.failure = fresh.kind === "already-recipemd"
+								? `${file.basename} is already in RecipeMD format.`
+								: `Cannot convert ${file.basename}: ${fresh.reason}`;
+							return current;
+						});
 					} catch (err) {
 						new Notice(`Failed to convert: ${err instanceof Error ? err.message : String(err)}`);
+						return;
 					}
+					new Notice(outcome.failure ?? `${file.basename} converted to RecipeMD.`);
 				})();
 			},
 		},

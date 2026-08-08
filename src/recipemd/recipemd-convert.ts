@@ -15,6 +15,7 @@ import { splitFrontmatter } from "../parser/recipe-frontmatter-strip";
 import { findHeadingIndex } from "../parser/recipe-heading-search";
 import { findSectionBoundary, RECIPEMD_SECTION_LEVEL } from "../parser/recipe-instruction-groups";
 import { findRecipeMdIngredients } from "../parser/recipemd-sections";
+import { markFencedLines } from "../parser/code-fence";
 
 export type RecipeMdConversion =
 	| { kind: "converted"; content: string }
@@ -45,10 +46,15 @@ function trimBlankEdges(lines: string[]): string[] {
  * trailing section. Shifting the whole run keeps the relative nesting intact.
  */
 function reheadMethodLines(lines: string[]): string[] | null {
+	// Fenced lines are skipped on both passes. A `# comment` in a shell snippet
+	// is not a heading, and rewriting it would edit the user's code block.
+	const fenced = markFencedLines(lines);
+
 	let shallowest = 7;
 	let deepest = 0;
-	for (const line of lines) {
-		const m = line.match(HEADING_RE);
+	for (let i = 0; i < lines.length; i++) {
+		if (fenced[i]) continue;
+		const m = lines[i].match(HEADING_RE);
 		if (!m) continue;
 		shallowest = Math.min(shallowest, m[1].length);
 		deepest = Math.max(deepest, m[1].length);
@@ -62,7 +68,8 @@ function reheadMethodLines(lines: string[]): string[] | null {
 	// the note's structure honest; nothing here can fix it automatically.
 	if (deepest + shift > 6) return null;
 
-	return lines.map((line) => {
+	return lines.map((line, i) => {
+		if (fenced[i]) return line;
 		const m = line.match(HEADING_RE);
 		if (!m) return line;
 		return `${"#".repeat(m[1].length + shift)} ${m[2].trim()}`;
@@ -73,24 +80,31 @@ function reheadMethodLines(lines: string[]): string[] | null {
  * Assembles the note. Blank lines around each fence are deliberate: a `---`
  * directly under a text line is a setext heading in Markdown, not a break, so
  * without the separation the fence would vanish from the rendered note.
+ *
+ * The single blank between sections is built up rather than produced by
+ * collapsing blank runs in the joined result. A blanket collapse also rewrote
+ * blank lines inside the user's own steps, including inside fenced code blocks,
+ * which this has no business touching when it is rewriting the note in place.
  */
 function assemble(frontmatter: string, intro: string[], ingredients: string[], method: string[], trailing: string[]): string {
-	const parts = [
-		...trimBlankEdges(intro),
-		"",
-		"---",
-		"",
-		...trimBlankEdges(ingredients),
-		"",
-		"---",
-		"",
-		...trimBlankEdges(method),
-	];
-	const tail = trimBlankEdges(trailing);
-	if (tail.length > 0) parts.push("", ...tail);
+	const parts: string[] = [];
+	// An empty section contributes nothing, so no separator is emitted for it and
+	// the seams never double up. The two fences are pushed unconditionally: they
+	// are what makes the note RecipeMD, empty ingredients or method or not.
+	const pushSection = (section: string[]): void => {
+		if (section.length === 0) return;
+		if (parts.length > 0) parts.push("");
+		parts.push(...section);
+	};
 
-	const body = parts.join("\n").replace(/\n{3,}/g, "\n\n");
-	return `${frontmatter}${body}\n`;
+	pushSection(trimBlankEdges(intro));
+	pushSection(["---"]);
+	pushSection(trimBlankEdges(ingredients));
+	pushSection(["---"]);
+	pushSection(trimBlankEdges(method));
+	pushSection(trimBlankEdges(trailing));
+
+	return `${frontmatter}${parts.join("\n")}\n`;
 }
 
 export function convertNoteToRecipeMd(

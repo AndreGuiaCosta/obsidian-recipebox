@@ -16,7 +16,7 @@ export interface FrontmatterSplit {
 export function splitFrontmatter(contents: string): FrontmatterSplit {
 	if (!contents.startsWith("---")) return { frontmatter: "", body: contents };
 	const closeIdx = contents.indexOf("\n---", 3);
-	if (closeIdx < 0) return { frontmatter: "", body: contents }; // no closing delimiter — treat it all as body
+	if (closeIdx < 0) return { frontmatter: "", body: contents }; // no closing delimiter, so treat it all as body
 	const splitAt = contents[closeIdx + 4] === "\n" ? closeIdx + 5 : closeIdx + 4;
 	return { frontmatter: contents.slice(0, splitAt), body: contents.slice(splitAt) };
 }
