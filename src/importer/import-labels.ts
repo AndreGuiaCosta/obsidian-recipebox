@@ -6,6 +6,7 @@
 import { ImportLabels } from "../parser/locales/locale-types";
 import { getLocale } from "../parser/locales";
 import { stripAccents } from "../parser/phrase-normalise";
+import { RecipeBoxSettings } from "../settings/settings-types";
 
 /** Every field present, which is what the parser can rely on after resolution. */
 export type ResolvedImportLabels = Required<ImportLabels>;
@@ -61,6 +62,42 @@ export function parseLabelList(raw: string): string[] {
  * one broken language for another. Duplicates (after accent folding) are
  * removed so the compiled alternation stays small.
  */
+/**
+ * The vocabulary as configured: locale plus the user's settings words. This is
+ * what the import modal pre-fills its section fields from, so what the user
+ * sees there is exactly what would be matched if they changed nothing.
+ */
+export function settingsImportLabels(settings: RecipeBoxSettings): ResolvedImportLabels {
+	return resolveImportLabels(settings.recipeLocale, {
+		ingredientsSection: parseLabelList(settings.importerIngredientsWords),
+		instructionsSection: parseLabelList(settings.importerInstructionsWords),
+	});
+}
+
+/**
+ * A per-import override of the two section lists. Replace rather than append,
+ * unlike the settings layer: the modal field is pre-filled with the effective
+ * words, so a user who deletes one expects it gone for this import, and
+ * appending would quietly hand it back from the locale layer.
+ *
+ * An empty field falls back to the configured list. Clearing the box has no
+ * useful meaning -- no delimiters means the whole paste becomes description --
+ * so it is read as "I did not mean to do that" rather than obeyed.
+ */
+export function withSectionOverrides(
+	configured: ResolvedImportLabels,
+	ingredientsWords: string,
+	instructionsWords: string,
+): ResolvedImportLabels {
+	const ingredients = parseLabelList(ingredientsWords);
+	const instructions = parseLabelList(instructionsWords);
+	return {
+		...configured,
+		ingredientsSection: ingredients.length > 0 ? ingredients : configured.ingredientsSection,
+		instructionsSection: instructions.length > 0 ? instructions : configured.instructionsSection,
+	};
+}
+
 export function resolveImportLabels(
 	localeId: string,
 	overrides: Partial<Record<keyof ImportLabels, string[]>> = {},

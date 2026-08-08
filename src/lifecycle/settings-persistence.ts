@@ -313,6 +313,8 @@ export function mergeSettings(raw: unknown): RecipeBoxSettings {
 		importerDefaultFolder: str(r.importerDefaultFolder, d.importerDefaultFolder),
 		importerUseRecipeMd: bool(r.importerUseRecipeMd, d.importerUseRecipeMd),
 		downloadImagesOnImport: bool(r.downloadImagesOnImport, d.downloadImagesOnImport),
+		importerIngredientsWords: str(r.importerIngredientsWords, d.importerIngredientsWords),
+		importerInstructionsWords: str(r.importerInstructionsWords, d.importerInstructionsWords),
 
 		headerBadges: Array.isArray(r.headerBadges)
 			? (r.headerBadges as unknown[]).map(validateBadge).filter((x): x is CustomBadge => x !== null)

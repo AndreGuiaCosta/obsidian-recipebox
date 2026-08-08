@@ -31,6 +31,10 @@ export class ImportRecipeModal extends BaseModal {
 			titleOverride: "",
 			folder: resolveDestinationFolder(settings),
 			useRecipeMd: settings.importerUseRecipeMd,
+			// Filled by the input stage from settings on first render, so the
+			// modal does not need to know how the vocabulary is assembled.
+			ingredientsWords: "",
+			instructionsWords: "",
 		};
 	}
 

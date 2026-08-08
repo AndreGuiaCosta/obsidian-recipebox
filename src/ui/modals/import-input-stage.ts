@@ -7,7 +7,7 @@ import { RecipeBoxSettings } from "../../settings/settings-types";
 import { FolderSuggest } from "../components/folder-suggest";
 import { ExtractedRecipe } from "../../importer/recipe-extract-types";
 import { submitUrl, submitText, resolveDestinationFolder } from "./import-submit";
-import { resolveImportLabels } from "../../importer/import-labels";
+import { settingsImportLabels, withSectionOverrides } from "../../importer/import-labels";
 
 export interface InputStageState {
 	tab: "url" | "text";
@@ -16,6 +16,13 @@ export interface InputStageState {
 	titleOverride: string;
 	folder: string;
 	useRecipeMd: boolean;
+	/**
+	 * The section words in effect for this import, comma-separated. Empty until
+	 * the stage renders and fills them from settings, and never written back --
+	 * an odd source should not permanently change how every later import parses.
+	 */
+	ingredientsWords: string;
+	instructionsWords: string;
 }
 
 export function renderInputStage(
@@ -103,6 +110,32 @@ export function renderInputStage(
 	formatCheckbox.addEventListener("change", () => { state.useRecipeMd = formatCheckbox.checked; });
 	if (customTemplate) state.useRecipeMd = false;
 
+	// Section words, shown for both tabs. These decide where the ingredients stop
+	// and the method starts, and they vary enough between sources that having to
+	// guess why an import came out as one long description was the main way this
+	// went wrong. Pre-filled with what settings and the locale actually produce,
+	// so the box doubles as the answer to "what is it looking for?".
+	const configured = settingsImportLabels(settings);
+	if (!state.ingredientsWords) state.ingredientsWords = configured.ingredientsSection.join(", ");
+	if (!state.instructionsWords) state.instructionsWords = configured.instructionsSection.join(", ");
+
+	const wordsSection = bodyEl.createDiv({ cls: "rb-import-words-section" });
+	wordsSection.createDiv({
+		cls: "rb-import-field-hint",
+		text: "Words that separate the ingredients from the method in this source. Changes apply to this import only.",
+	});
+	const wordsField = (label: string, value: string, onInput: (v: string) => void): void => {
+		wordsSection.createDiv({ cls: "rb-import-field-label", text: label });
+		const input = wordsSection.createEl("input", {
+			cls: "rb-import-text-input",
+			attr: { type: "text" },
+		});
+		input.value = value;
+		input.addEventListener("input", () => onInput(input.value));
+	};
+	wordsField("Ingredients headings", state.ingredientsWords, (v) => { state.ingredientsWords = v; });
+	wordsField("Method headings", state.instructionsWords, (v) => { state.instructionsWords = v; });
+
 	const importBtn = footerEl.createEl("button", { cls: "mod-cta", text: "Import" });
 	importBtn.addEventListener("click", () => { void (async () => {
 		importBtn.disabled = true;
@@ -112,7 +145,11 @@ export function renderInputStage(
 		try {
 			// Resolved per click rather than once at render, so a locale change in
 			// settings takes effect without reopening the modal.
-			const labels = resolveImportLabels(settings.recipeLocale);
+			const labels = withSectionOverrides(
+				settingsImportLabels(settings),
+				state.ingredientsWords,
+				state.instructionsWords,
+			);
 			if (state.tab === "url") {
 				const result = await submitUrl(state.url, labels);
 				if (result.kind === "success") {
