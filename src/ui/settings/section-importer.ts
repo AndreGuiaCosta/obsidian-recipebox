@@ -48,5 +48,31 @@ export function renderSectionImporter(
 				});
 				new FolderSuggest(app, t.inputEl);
 			});
+
+		// Kept separate from the locale picker in the parsing section: that one
+		// selects a whole vocabulary, these add to whichever one is selected.
+		new Setting(body)
+			.setName("Extra ingredients headings")
+			.setDesc("Comma-separated words that mark where the ingredients start in pasted text. Added to the locale's own words, never replacing them.")
+			.addText((t) => {
+				t.setPlaceholder("Shopping list, you will need")
+					.setValue(settings.importerIngredientsWords)
+					.onChange(async (v) => {
+						settings.importerIngredientsWords = v;
+						await save();
+					});
+			});
+
+		new Setting(body)
+			.setName("Extra method headings")
+			.setDesc("Comma-separated words that mark where the method starts in pasted text. Added to the locale's own words, never replacing them.")
+			.addText((t) => {
+				t.setPlaceholder("Let's cook, assembly")
+					.setValue(settings.importerInstructionsWords)
+					.onChange(async (v) => {
+						settings.importerInstructionsWords = v;
+						await save();
+					});
+			});
 	});
 }

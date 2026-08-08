@@ -2405,6 +2405,20 @@ button:not(.clickable-icon).rb-grocery-remove-btn:hover {
   letter-spacing: 0.04em;
 }
 
+/* Separates the section-word fields from the folder row above them: they
+   configure how the paste is read rather than where it is saved. */
+.rb-import-words-section {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.rb-import-field-hint {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
 .rb-import-text-input {
   width: 100%;
   max-width: 100%;

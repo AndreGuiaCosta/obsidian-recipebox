@@ -112,6 +112,10 @@ export const DEFAULT_SETTINGS: RecipeBoxSettings = {
 	importerDefaultFolder: "Recipes",
 	importerUseRecipeMd: false,
 	downloadImagesOnImport: true,
+	// Empty means "locale vocabulary only", which is the correct default now that
+	// the locale supplies real words instead of English-only ones.
+	importerIngredientsWords: "",
+	importerInstructionsWords: "",
 
 	headerBadges: [
 		{

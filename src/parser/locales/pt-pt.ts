@@ -112,4 +112,39 @@ export const PT_PT: RecipeLocale = {
 		"meio": 0.5, "meia": 0.5, "um quarto": 0.25, "uma quarta": 0.25,
 	},
 	prepositions: ["de", "do", "da", "dos", "das"],
+	// Section and metadata words for pasted text. Without these a Portuguese
+	// paste matched no section at all: the state machine never left "before", so
+	// the entire recipe landed in the description with zero ingredients and zero
+	// steps, and every nutrition figure came back null.
+	//
+	// Accents are folded on both sides of the comparison, so only one spelling of
+	// each word is needed here.
+	importLabels: {
+		ingredientsSection: ["ingredientes", "ingrediente", "o que precisa", "precisa de"],
+		// No word here may also appear in prepTime, cookTime or totalTime. The
+		// claim that the two passes could not collide was wrong: extractLooseTime
+		// scans the whole text, so the section heading itself fed the time scan and
+		// "Preparação\n\nLeve ao forno 30 minutos" imported as a 30 minute prep
+		// time. Numbered steps escaped only by accident, because the step number
+		// reached the digit matcher first. locale-contract.test.ts now asserts the
+		// separation.
+		instructionsSection: [
+			"preparação", "modo de preparação", "modo de preparo", "modo de fazer",
+			"instruções", "confeção", "confecção", "execução",
+			"passos", "método", "procedimento", "elaboração",
+		],
+		servings: ["doses", "dose", "porções", "porção", "rende", "rendimento", "pessoas"],
+		calories: ["calorias", "caloria", "kcal", "valor energético"],
+		protein: ["proteínas", "proteína"],
+		fat: ["gorduras", "gordura", "lípidos"],
+		carbs: ["hidratos de carbono", "hidratos", "carboidratos", "glícidos"],
+		// Bare "preparação" and "confeção" are dropped: both are far commoner as
+		// the method's own heading than as a time label, so the explicit "tempo de"
+		// forms carry that job. "Preparação: 30 min" no longer reads as a prep
+		// time, which is the deliberate trade for not inventing one on every
+		// recipe whose method heading is followed by an unnumbered step.
+		prepTime: ["tempo de preparação", "tempo de preparo"],
+		cookTime: ["tempo de cozedura", "tempo de confeção", "tempo de forno", "cozedura"],
+		totalTime: ["tempo total", "duração total", "total"],
+	},
 };

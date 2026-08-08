@@ -72,4 +72,56 @@ describe.each(allLocales().map((l) => [l.id, l] as const))("%s locale contract",
 			expect(p, `${p} is not a plain word`).toMatch(/^[\p{L}]+$/u);
 		}
 	});
+
+	// Import labels are literal words, not regex fragments -- buildLabelAlternation
+	// escapes them, so a fragment written here would be matched character for
+	// character and silently never fire. Presence is not asserted: importLabels is
+	// optional like every other table, and a locale without it falls back to the
+	// English base.
+	describe("import labels", () => {
+		const importLists: [string, string[]][] = Object.entries(locale.importLabels ?? {});
+
+		it("carries no empty or whitespace-only word", () => {
+			for (const [field, words] of importLists) {
+				for (const word of words) {
+					// An empty entry compiles into an alternation branch that matches
+					// everywhere, so servings would latch onto the first digit in the note.
+					expect(word.trim(), `${field} has an empty word`).not.toBe("");
+				}
+			}
+		});
+
+		it("carries no duplicate within a field once accents are folded", () => {
+			for (const [field, words] of importLists) {
+				const folded = words.map((w) => normalisePhrase(w));
+				expect(new Set(folded).size, `${field} repeats a word`).toBe(folded.length);
+			}
+		});
+
+		it("declares words, not regex fragments", () => {
+			for (const [field, words] of importLists) {
+				for (const word of words) {
+					expect(word, `${field}: "${word}" looks like a regex`).not.toMatch(/[()[\]{}|*+?\\^$]/);
+				}
+			}
+		});
+
+		it("keeps the method's section words out of the time labels", () => {
+			// The time scan reads the whole text, so a word that is both the method's
+			// heading and a time label makes the heading itself set a time: with
+			// "preparação" in both, "Preparação\n\nLeve ao forno 30 minutos" imported
+			// as a 30 minute prep time. Same shape as the unit/qualifier disjointness
+			// above, and the reason bare "preparação" and "confeção" are no longer
+			// time labels.
+			const labels = locale.importLabels;
+			if (!labels) return;
+			const sections = new Set((labels.instructionsSection ?? []).map((w) => normalisePhrase(w)));
+			for (const field of ["prepTime", "cookTime", "totalTime"] as const) {
+				for (const word of labels[field] ?? []) {
+					const folded = normalisePhrase(word);
+					expect(sections.has(folded), `${field}: "${word}" is also a method heading`).toBe(false);
+				}
+			}
+		});
+	});
 });

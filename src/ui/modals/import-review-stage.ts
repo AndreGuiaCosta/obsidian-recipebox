@@ -163,6 +163,13 @@ export function renderReviewStage(
 	servInput.value = leadingInt(recipe.servings);
 	servInput.addEventListener("input", () => { recipe.servings = servInput.value || null; });
 
+	// Shown for every import, not just the text tab. A manual paste is often a
+	// manual paste *because* the scraper could not read the page, so the URL still
+	// exists and is worth recording; and a URL import that picked up the wrong
+	// canonical link is only fixable here. Both note templates write
+	// `source: {{sourceUrl}}`, so whatever lands here reaches the frontmatter.
+	field(basicBody, "Source", recipe.sourceUrl, false, (v) => { recipe.sourceUrl = v.trim(); });
+
 	// Ingredients: its own card, stacked (not side-by-side with steps).
 	const ingredientsBody = importCard(bodyEl, "Ingredients", false);
 	const ingTa = ingredientsBody.createEl("textarea", { cls: "rb-import-textarea rb-import-textarea--auto" });

@@ -143,6 +143,17 @@ export interface RecipeBoxSettings {
 	/** Default state of the import modal's RecipeMD checkbox. Ignored when importerTemplatePath is set. */
 	importerUseRecipeMd: boolean;
 	downloadImagesOnImport: boolean;
+	/**
+	 * Extra words that mark where a pasted recipe's ingredients and method begin,
+	 * comma-separated. Added to the selected locale's vocabulary rather than
+	 * replacing it, so a site with an unusual heading can be handled without
+	 * losing the built-in ones.
+	 *
+	 * Two fields rather than one: adding an instructions synonym has nothing to do
+	 * with ingredients, so these do not travel together.
+	 */
+	importerIngredientsWords: string;
+	importerInstructionsWords: string;
 
 	// Header badges
 	headerBadges: CustomBadge[];
