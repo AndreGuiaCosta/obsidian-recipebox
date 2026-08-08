@@ -193,6 +193,28 @@ describe("the trailing metadata block leaves nothing behind", () => {
 		expect(recipe.calories).toBe(650);
 	});
 
+	it("does not eat a final step that is only a label word", () => {
+		// "total" is a totalTime label. With no value run beneath it there is
+		// nothing marking this as metadata, so the header rule must not fire.
+		const text = [
+			"Bolo", "", "Ingredientes", "", "- farinha", "",
+			"Preparação", "", "1. Misture.", "Total:",
+		].join("\n");
+		const groups = extractRecipeFromText(text, undefined, ptLabels).instructionGroups;
+		expect(JSON.stringify(groups)).toContain("Misture");
+	});
+
+	it("keeps a sub-heading that has steps under it", () => {
+		// The empty-group filter added alongside the header rule must not take
+		// real sub-groups with it.
+		const text = [
+			"Bolo", "", "Ingredientes", "", "- farinha", "",
+			"Preparação", "", "Molho:", "1. Misture.", "Massa:", "2. Amasse.",
+		].join("\n");
+		const groups = extractRecipeFromText(text, undefined, ptLabels).instructionGroups;
+		expect(groups.map(g => g.name)).toEqual(["Molho", "Massa"]);
+	});
+
 	it("leaves a one-word final step alone when no metadata follows it", () => {
 		const text = [
 			"Bolo", "", "Ingredientes", "", "- farinha", "",
