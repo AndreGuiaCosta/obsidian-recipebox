@@ -14,6 +14,7 @@ import { ShareRecipeModal } from "../ui/modals/share-recipe-modal";
 import { isRecipeFile } from "../lifecycle/recipe-file-detection";
 import { canConvertToRecipeMd, runRecipeMdConversion } from "../recipemd/run-recipemd-conversion";
 import { RecipeView, RECIPE_VIEW_TYPE } from "../ui/recipe-view/recipe-view";
+import { multiDayMealPlanDeps } from "../lifecycle/register-views";
 
 export function registerCommands(plugin: RecipeBoxPlugin): void {
 	plugin.addCommand({
@@ -71,6 +72,8 @@ export function registerCommands(plugin: RecipeBoxPlugin): void {
 					(day, meal, contributions) => {
 						void plugin.manager.addToMealPlan(file.path, day, meal, contributions ?? {});
 					},
+					undefined,
+					multiDayMealPlanDeps(plugin),
 				).open();
 			}
 			return true;

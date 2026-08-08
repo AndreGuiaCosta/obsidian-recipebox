@@ -1,3 +1,25 @@
+## [0.1.11](https://github.com/AdamArcane/obsidian-recipebox/compare/0.1.11-beta.0...0.1.11) (2026-08-08)
+
+### Features
+
+* **meal-plan:** implement multi-day recipe placement in meal plan modal ([83394c3](https://github.com/AdamArcane/obsidian-recipebox/commit/83394c3f88bcdfad22e3c41f4acc5c0df5df5877))
+
+### Bug Fixes
+
+* **ci:** sync lockfile for npm 10 esbuild resolution ([f82687e](https://github.com/AdamArcane/obsidian-recipebox/commit/f82687e23bc8c50bde3b8eb540580560efd131bb))
+
+## [0.1.11-beta.0](https://github.com/AdamArcane/obsidian-recipebox/compare/0.1.10...0.1.11-beta.0) (2026-08-08)
+
+### Features
+
+* **settings:** refactor settings sections to use declarative rendering and improve layout ([40cb90d](https://github.com/AdamArcane/obsidian-recipebox/commit/40cb90d54fc1de070fafc88ad885f8a9c6d67754))
+
+### Bug Fixes
+
+* add undici override ([29f8603](https://github.com/AdamArcane/obsidian-recipebox/commit/29f8603c8fadb946c1636c5a36f3ebe863ae4cd9))
+* **docs:** update references to 'dev' branch to 'development' in CONTRIBUTING.md and release script ([d905304](https://github.com/AdamArcane/obsidian-recipebox/commit/d9053045f441613929d7f5d8d65f9aa5c7acbab9))
+* **release:** preserve manifest version when running npm version ([fc4129d](https://github.com/AdamArcane/obsidian-recipebox/commit/fc4129df18511e7f82aba45ce5a7af5d916ae362))
+
 ## [0.1.10](https://github.com/AdamArcane/obsidian-recipebox/compare/0.1.10-beta.3...0.1.10) (2026-08-07)
 
 ## [0.1.10-beta.3](https://github.com/AdamArcane/obsidian-recipebox/compare/0.1.10-beta.2...0.1.10-beta.3) (2026-08-01)

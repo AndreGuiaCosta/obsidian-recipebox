@@ -2706,12 +2706,21 @@ button:not(.clickable-icon).rb-grocery-remove-btn:hover {
   cursor: pointer;
 }
 
-/* ── Radio group (Schedule recipes modal: day fill mode) ─────────────────── */
+/* ── Radio group (Schedule recipes modal: day fill mode; also reused with
+   checkboxes for the Add to meal plan modal's multi-day picker) ──────────── */
 
 .rb-modal-radio-group {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+}
+
+/* Multi-day picker: Queue + seven weekdays reads better as a wrapping grid
+   than one column, since a single column runs the modal tall unnecessarily. */
+.rb-modal-radio-group--wrap {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
 }
 
 .rb-modal-radio-row {
@@ -2723,7 +2732,8 @@ button:not(.clickable-icon).rb-grocery-remove-btn:hover {
   color: var(--text-normal);
 }
 
-.rb-modal-radio-row input[type="radio"] {
+.rb-modal-radio-row input[type="radio"],
+.rb-modal-radio-row input[type="checkbox"] {
   flex-shrink: 0;
   cursor: pointer;
 }
@@ -5500,26 +5510,49 @@ input[type='search'].rb-gallery-search {
    plain solid underline, so it doesn't collide visually with a folder-note
    plugin the person might also have installed. */
 .rb-folder-gallery-link {
-  text-decoration-line: underline;
-  text-decoration-style: dotted;
+  border-bottom: 1px dotted currentColor;
 }
 
 .rb-folder-gallery-link:hover {
-  text-decoration-line: underline;
-  text-decoration-style: solid;
+  border-bottom-style: solid;
   cursor: pointer;
 }
 
 .rb-folder-gallery-link::after {
   content: " 🍴";
   display: inline-block;
-  text-decoration: none;
+  border-bottom: 0;
 }
 
 /* ── Dashboard view ───────────────────────────────────────────────────────── */
 
 .rb-dashboard-view {
   padding: 1rem;
+}
+
+/* Declarative settings rows that host legacy section renderers should use
+   the full row width, otherwise Obsidian's two-column setting layout squeezes
+   the embedded section UI into a narrow control column. */
+.setting-item.rb-settings-declarative-legacy-row > .setting-item-info {
+  display: none;
+}
+
+.setting-item.rb-settings-declarative-legacy-row > .setting-item-control {
+  display: block;
+  flex: 1 1 100%;
+  max-width: 100%;
+  margin-inline-start: 0;
+  width: 100%;
+  overflow: visible;
+}
+
+.setting-item.rb-settings-declarative-legacy-row .rb-settings-declarative-legacy-mount {
+  display: block;
+  width: 100%;
+}
+
+.setting-item.rb-settings-declarative-legacy-row .rb-settings-declarative-legacy-mount > .setting-item {
+  width: 100%;
 }
 
 .rb-dashboard-greeting {
