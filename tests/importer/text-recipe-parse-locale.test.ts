@@ -87,6 +87,21 @@ describe("trailing metadata after the last step", () => {
 		]);
 	});
 
+	it("keeps an unnumbered final step that starts with a time label", () => {
+		// "cook" is a cook-time label, so without the separator rule this line
+		// looked exactly like "Cook time: 30" and the step disappeared.
+		const text = "Pasta\n\nIngredients\n\n- flour\n\nInstructions\n\nMix well.\nCook 30 minutes\n";
+		expect(extractRecipeFromText(text).instructionGroups.flatMap((g) => g.items)).toEqual([
+			"Mix well.",
+			"Cook 30 minutes",
+		]);
+	});
+
+	it("still trims a bare label and number with nothing after it", () => {
+		const text = "Pasta\n\nIngredients\n\n- flour\n\nInstructions\n\nMix well.\nServes 4\n";
+		expect(extractRecipeFromText(text).instructionGroups.flatMap((g) => g.items)).toEqual(["Mix well."]);
+	});
+
 	it("stops at the first non-metadata line rather than filtering throughout", () => {
 		// A stray "Serves 4" mid-method stays put: only a trailing run is trimmed,
 		// so the step after it protects everything above.

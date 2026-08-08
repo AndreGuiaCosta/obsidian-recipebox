@@ -112,11 +112,16 @@ function buildInstructionGroups(lines: string[]): ImportedGroup[] {
  * it only became obvious once the pt-PT vocabulary made Portuguese pastes
  * reach the method at all.
  *
- * Deliberately conservative. Only a trailing run is considered, and only lines
- * that are entirely "<known label><separator><number>" -- a real final step
- * mentioning a number ("Bake for 30 minutes") has other words around it and is
- * never touched. Scanning stops at the first line that does not match, so a
- * nutrition table buried mid-method is left exactly where the user put it.
+ * Deliberately conservative in three ways. Only a trailing run is considered,
+ * and scanning stops at the first line that does not match, so a nutrition
+ * table buried mid-method stays where the user put it. The line must start with
+ * a known label, so "Bake for 30 minutes" is never a candidate.
+ *
+ * And a word after the number is only tolerated when a separator marks the line
+ * as a label ("Protein: 32 g"). Without that rule the pattern also ate
+ * "Cook 30 minutes" -- a perfectly good unnumbered final step, since "cook" is
+ * a cook-time label. Bare "Serves 4" still matches because nothing follows the
+ * number.
  */
 function trimTrailingMetadataLines(lines: string[], labels: ResolvedImportLabels): string[] {
 	const metaWords = [
@@ -124,8 +129,11 @@ function trimTrailingMetadataLines(lines: string[], labels: ResolvedImportLabels
 		...labels.fat, ...labels.carbs,
 		...labels.prepTime, ...labels.cookTime, ...labels.totalTime,
 	];
+	const number = "\\d+(?:[.,]\\d+)?";
 	const metaLine = new RegExp(
-		`^(?:${buildLabelAlternation(metaWords)})\\s*[:\\-–]?\\s*\\d+(?:[.,]\\d+)?\\s*\\S{0,12}$`,
+		`^(?:${buildLabelAlternation(metaWords)})`
+		+ `(?:\\s*[:\\-–]\\s*${number}\\s*\\S{0,12}` // separator present: a unit may follow
+		+ `|\\s+${number})\\s*$`, // no separator: the number must end the line
 		"i",
 	);
 

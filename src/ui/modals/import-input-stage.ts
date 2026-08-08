@@ -115,6 +115,11 @@ export function renderInputStage(
 	// guess why an import came out as one long description was the main way this
 	// went wrong. Pre-filled with what settings and the locale actually produce,
 	// so the box doubles as the answer to "what is it looking for?".
+	//
+	// The hint names the paths that actually consult these words. A normal URL
+	// import goes through recipe-scrapers, which reads structured data and never
+	// looks at headings -- leaving that unsaid would make the fields look broken
+	// on the URL tab, since editing them would change nothing.
 	const configured = settingsImportLabels(settings);
 	if (!state.ingredientsWords) state.ingredientsWords = configured.ingredientsSection.join(", ");
 	if (!state.instructionsWords) state.instructionsWords = configured.instructionsSection.join(", ");
@@ -122,7 +127,7 @@ export function renderInputStage(
 	const wordsSection = bodyEl.createDiv({ cls: "rb-import-words-section" });
 	wordsSection.createDiv({
 		cls: "rb-import-field-hint",
-		text: "Words that separate the ingredients from the method in this source. Changes apply to this import only.",
+		text: "Words that separate the ingredients from the method when reading pasted text, or a YouTube or TikTok caption. Recipe pages with structured data are read directly and ignore these. Changes apply to this import only.",
 	});
 	const wordsField = (label: string, value: string, onInput: (v: string) => void): void => {
 		wordsSection.createDiv({ cls: "rb-import-field-label", text: label });
