@@ -112,4 +112,29 @@ describe("splitBodyAroundInstructions, RecipeMD notes", () => {
 		const result = splitBodyAroundInstructions(body, "Instructions", false);
 		expect(result).toEqual({ before: body, groups: [], after: "" });
 	});
+
+	// A heading-looking line inside a code block used to end the method there,
+	// dropping every step after it into the trailing section.
+	it("does not end the method at a heading inside a fenced code block", () => {
+		const body = "## Instructions\n1. Run this:\n\n```sh\n# build the sauce\nmake sauce\n```\n\n2. Serve.";
+		const result = splitBodyAroundInstructions(body, "Instructions");
+		expect(result.after).toBe("");
+		expect(result.groups).toHaveLength(1);
+		expect(result.groups[0].steps).toHaveLength(2);
+		expect(result.groups[0].steps[0]).toContain("# build the sauce");
+	});
+
+	it("does not open a sub-group at a heading inside a fenced code block", () => {
+		const body = "## Instructions\n1. Run this:\n\n```sh\n### not a sub-group\n```\n\n2. Serve.";
+		const result = splitBodyAroundInstructions(body, "Instructions");
+		expect(result.groups).toEqual([
+			{ heading: null, headingLevel: 0, steps: ["Run this:\n\n```sh\n### not a sub-group\n```", "Serve."] },
+		]);
+	});
+
+	it("still ends the method at a real heading after the code block closes", () => {
+		const body = "## Instructions\n1. Run this:\n\n```sh\n# build\n```\n\n## Notes\nRest it.";
+		const result = splitBodyAroundInstructions(body, "Instructions");
+		expect(result.after).toBe("## Notes\nRest it.");
+	});
 });
