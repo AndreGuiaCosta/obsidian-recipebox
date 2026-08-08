@@ -7,6 +7,7 @@ import { RecipeBoxSettings } from "../../settings/settings-types";
 import { FolderSuggest } from "../components/folder-suggest";
 import { ExtractedRecipe } from "../../importer/recipe-extract-types";
 import { submitUrl, submitText, resolveDestinationFolder } from "./import-submit";
+import { resolveImportLabels } from "../../importer/import-labels";
 
 export interface InputStageState {
 	tab: "url" | "text";
@@ -109,8 +110,11 @@ export function renderInputStage(
 		urlErrorBox.empty();
 		urlErrorBox.hide();
 		try {
+			// Resolved per click rather than once at render, so a locale change in
+			// settings takes effect without reopening the modal.
+			const labels = resolveImportLabels(settings.recipeLocale);
 			if (state.tab === "url") {
-				const result = await submitUrl(state.url);
+				const result = await submitUrl(state.url, labels);
 				if (result.kind === "success") {
 					onResult(result.recipe, state.folder, result.warning);
 				} else {
@@ -118,7 +122,7 @@ export function renderInputStage(
 					urlErrorBox.show();
 				}
 			} else {
-				const recipe = submitText(state.text, state.titleOverride);
+				const recipe = submitText(state.text, state.titleOverride, labels);
 				if (recipe) onResult(recipe, state.folder, null);
 			}
 		} finally {

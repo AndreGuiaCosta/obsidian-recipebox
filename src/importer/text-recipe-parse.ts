@@ -4,7 +4,9 @@
  */
 import { ExtractedRecipe, ImportedGroup } from "./recipe-extract-types";
 import { decodeHtmlEntities } from "./html-entity-decode";
-import { INGREDIENTS_SECTION_RE, INSTRUCTIONS_SECTION_RE, isSectionKeyword } from "./text-recipe-detect";
+import { createSectionMatcher, buildLabelAlternation } from "./text-recipe-detect";
+import { BASE_IMPORT_LABELS, ResolvedImportLabels } from "./import-labels";
+import { stripAccents } from "../parser/phrase-normalise";
 
 const HTML_TAG_RE = /<[^>]+>/g;
 const EXCESS_BLANK_RE = /\n{3,}/g;
@@ -21,23 +23,23 @@ function timeToMinutes(value: string, unit: string): number | null {
 	return /h/i.test(unit) ? Math.round(n * 60) : Math.round(n);
 }
 
-function extractLooseTime(text: string, label: string): number | null {
+function extractLooseTime(text: string, words: readonly string[]): number | null {
 	const re = new RegExp(
-		`${label}[^\\d]{0,20}(\\d+(?:\\.\\d+)?)\\s*(min(?:utes?)?|hr?s?|hours?)`,
+		`(?:${buildLabelAlternation(words)})[^\\d]{0,20}(\\d+(?:\\.\\d+)?)\\s*(min(?:utes?)?|hr?s?|hours?)`,
 		"i",
 	);
 	const m = re.exec(text);
 	return m ? timeToMinutes(m[1], m[2]) : null;
 }
 
-function extractLooseNumber(text: string, label: string): number | null {
-	// The label wraps in a non-capturing group because callers like the
-	// calories/carbs labels below contain a top-level "|" alternation
-	// (e.g. "calories?|cal(?:ories?)?\\b") -- without grouping, the
-	// [^\d]{0,15}(\d+) suffix only binds to the last alternative, so a
-	// match against an earlier alternative leaves the digit-capturing
-	// group unmatched and Number(undefined) silently returns NaN.
-	const re = new RegExp(`(?:${label})[^\\d]{0,15}(\\d+)`, "i");
+function extractLooseNumber(text: string, words: readonly string[]): number | null {
+	// The alternation stays wrapped in a non-capturing group: without it the
+	// [^\d]{0,15}(\d+) suffix binds only to the last alternative, so a match on
+	// an earlier one leaves the digit group unmatched and Number(undefined)
+	// silently returns NaN. That was a real bug back when these were
+	// hand-written fragments, and building the alternation here does not make
+	// the grouping any less necessary.
+	const re = new RegExp(`(?:${buildLabelAlternation(words)})[^\\d]{0,15}(\\d+)`, "i");
 	const m = re.exec(text);
 	return m ? Number(m[1]) : null;
 }
@@ -102,11 +104,60 @@ function buildInstructionGroups(lines: string[]): ImportedGroup[] {
 	return groups.filter(g => g.name !== null || g.items.length > 0);
 }
 
+/**
+ * Drops trailing "Doses: 4" / "Calories: 650" lines from the method.
+ *
+ * The state machine has no notion of the recipe ending, so a nutrition block
+ * printed after the last step became a step. It was always wrong in English;
+ * it only became obvious once the pt-PT vocabulary made Portuguese pastes
+ * reach the method at all.
+ *
+ * Deliberately conservative. Only a trailing run is considered, and only lines
+ * that are entirely "<known label><separator><number>" -- a real final step
+ * mentioning a number ("Bake for 30 minutes") has other words around it and is
+ * never touched. Scanning stops at the first line that does not match, so a
+ * nutrition table buried mid-method is left exactly where the user put it.
+ */
+function trimTrailingMetadataLines(lines: string[], labels: ResolvedImportLabels): string[] {
+	const metaWords = [
+		...labels.servings, ...labels.calories, ...labels.protein,
+		...labels.fat, ...labels.carbs,
+		...labels.prepTime, ...labels.cookTime, ...labels.totalTime,
+	];
+	const metaLine = new RegExp(
+		`^(?:${buildLabelAlternation(metaWords)})\\s*[:\\-–]?\\s*\\d+(?:[.,]\\d+)?\\s*\\S{0,12}$`,
+		"i",
+	);
+
+	let end = lines.length;
+	while (end > 0) {
+		const line = stripAccents(lines[end - 1].trim());
+		if (line && !metaLine.test(line)) break;
+		end--;
+	}
+	return lines.slice(0, end);
+}
+
 // --- Main export ---
 
-export function extractRecipeFromText(rawText: string, titleOverride?: string): ExtractedRecipe {
+/**
+ * `labels` defaults to the English base so the social-caption path and existing
+ * callers keep working unchanged; the import modal passes the locale-resolved
+ * set. Without it a pasted Portuguese recipe matched no section at all and the
+ * whole body collapsed into the description.
+ */
+export function extractRecipeFromText(
+	rawText: string,
+	titleOverride?: string,
+	labels: ResolvedImportLabels = BASE_IMPORT_LABELS,
+): ExtractedRecipe {
 	const cleaned = decodeHtmlEntities(cleanText(rawText));
 	const allLines = cleaned.split("\n");
+	const sections = createSectionMatcher(labels);
+	// Accents are folded for the metadata scan so "Proteína" matches a label
+	// stored as "proteina". Deliberately not normalisePhrase: that also strips
+	// periods, which would turn "1.5 g" into "15 g".
+	const scanText = stripAccents(cleaned);
 
 	// Title detection
 	let titleLineIndex = -1;
@@ -121,7 +172,7 @@ export function extractRecipeFromText(rawText: string, titleOverride?: string): 
 				titleLineIndex = i;
 				break;
 			}
-			if (!isSectionKeyword(line)) {
+			if (!sections.isSectionKeyword(line)) {
 				title = line;
 				titleLineIndex = i;
 			}
@@ -130,16 +181,18 @@ export function extractRecipeFromText(rawText: string, titleOverride?: string): 
 	}
 
 	// Loose metadata from full text
-	const servingsMatch =
-		/(?:serves?|yield|servings?|makes?)[^\d]{0,15}(\d+)/i.exec(cleaned);
+	const servingsMatch = new RegExp(
+		`(?:${buildLabelAlternation(labels.servings)})[^\\d]{0,15}(\\d+)`,
+		"i",
+	).exec(scanText);
 	const servings = servingsMatch ? servingsMatch[1] : null;
-	const prepTime = extractLooseTime(cleaned, "prep(?:\\s+time)?");
-	const cookTime = extractLooseTime(cleaned, "cook(?:ing)?(?:\\s+time)?");
-	const totalTime = extractLooseTime(cleaned, "total(?:\\s+time)?");
-	const calories = extractLooseNumber(cleaned, "calories?|cal(?:ories?)?\\b");
-	const protein = extractLooseNumber(cleaned, "protein");
-	const fat = extractLooseNumber(cleaned, "fat");
-	const carbs = extractLooseNumber(cleaned, "carbs?|carbohydrates?");
+	const prepTime = extractLooseTime(scanText, labels.prepTime);
+	const cookTime = extractLooseTime(scanText, labels.cookTime);
+	const totalTime = extractLooseTime(scanText, labels.totalTime);
+	const calories = extractLooseNumber(scanText, labels.calories);
+	const protein = extractLooseNumber(scanText, labels.protein);
+	const fat = extractLooseNumber(scanText, labels.fat);
+	const carbs = extractLooseNumber(scanText, labels.carbs);
 
 	// Section state machine
 	type Section = "before" | "ingredients" | "instructions";
@@ -154,12 +207,12 @@ export function extractRecipeFromText(rawText: string, titleOverride?: string): 
 		const line = allLines[i];
 		const trimmed = line.trim();
 
-		if (INGREDIENTS_SECTION_RE.test(trimmed)) {
+		if (sections.isIngredients(trimmed)) {
 			section = "ingredients";
 			foundAnySection = true;
 			continue;
 		}
-		if (INSTRUCTIONS_SECTION_RE.test(trimmed)) {
+		if (sections.isInstructions(trimmed)) {
 			section = "instructions";
 			foundAnySection = true;
 			continue;
@@ -186,7 +239,7 @@ export function extractRecipeFromText(rawText: string, titleOverride?: string): 
 		cookTime,
 		totalTime,
 		ingredientGroups: buildIngredientGroups(ingredientLines),
-		instructionGroups: buildInstructionGroups(instructionLines),
+		instructionGroups: buildInstructionGroups(trimTrailingMetadataLines(instructionLines, labels)),
 		// Text-mode import (pasted captions/text) has no notes-block detection --
 		// always empty, same convention as "no notes found" from the URL path.
 		notesGroups: [],

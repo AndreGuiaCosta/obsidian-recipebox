@@ -72,4 +72,38 @@ describe.each(allLocales().map((l) => [l.id, l] as const))("%s locale contract",
 			expect(p, `${p} is not a plain word`).toMatch(/^[\p{L}]+$/u);
 		}
 	});
+
+	// Import labels are literal words, not regex fragments -- buildLabelAlternation
+	// escapes them, so a fragment written here would be matched character for
+	// character and silently never fire. Presence is not asserted: importLabels is
+	// optional like every other table, and a locale without it falls back to the
+	// English base.
+	describe("import labels", () => {
+		const importLists: [string, string[]][] = Object.entries(locale.importLabels ?? {});
+
+		it("carries no empty or whitespace-only word", () => {
+			for (const [field, words] of importLists) {
+				for (const word of words) {
+					// An empty entry compiles into an alternation branch that matches
+					// everywhere, so servings would latch onto the first digit in the note.
+					expect(word.trim(), `${field} has an empty word`).not.toBe("");
+				}
+			}
+		});
+
+		it("carries no duplicate within a field once accents are folded", () => {
+			for (const [field, words] of importLists) {
+				const folded = words.map((w) => normalisePhrase(w));
+				expect(new Set(folded).size, `${field} repeats a word`).toBe(folded.length);
+			}
+		});
+
+		it("declares words, not regex fragments", () => {
+			for (const [field, words] of importLists) {
+				for (const word of words) {
+					expect(word, `${field}: "${word}" looks like a regex`).not.toMatch(/[()[\]{}|*+?\\^$]/);
+				}
+			}
+		});
+	});
 });

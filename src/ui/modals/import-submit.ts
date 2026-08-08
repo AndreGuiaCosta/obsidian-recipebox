@@ -9,6 +9,7 @@ import { fetchHtml } from "../../importer/recipe-fetch";
 import { extractRecipe } from "../../importer/recipe-extract";
 import { extractSocialMeta } from "../../importer/social-meta-extract";
 import { extractRecipeFromText } from "../../importer/text-recipe-parse";
+import { ResolvedImportLabels } from "../../importer/import-labels";
 import { detectPlatform } from "../../importer/social-platform-detect";
 import { buildRecipeNote } from "../../importer/note-template-render";
 import { titleToFilename } from "../../importer/note-filename";
@@ -19,7 +20,7 @@ export type SubmitUrlResult =
 	| { kind: "success"; recipe: ExtractedRecipe; warning: string | null }
 	| { kind: "error"; message: string };
 
-export async function submitUrl(url: string): Promise<SubmitUrlResult> {
+export async function submitUrl(url: string, labels: ResolvedImportLabels): Promise<SubmitUrlResult> {
 	const trimmed = url.trim();
 	if (!trimmed) {
 		return { kind: "error", message: "Please enter a URL." };
@@ -38,7 +39,10 @@ export async function submitUrl(url: string): Promise<SubmitUrlResult> {
 
 	if (platform === "youtube" || platform === "tiktok") {
 		const meta = extractSocialMeta(html);
-		const recipe = extractRecipeFromText(meta.description, meta.title || undefined);
+		// The caption path runs through the same text parser as a manual paste, so
+		// it needs the locale vocabulary for the same reason: a Portuguese TikTok
+		// caption otherwise yields a description and nothing else.
+		const recipe = extractRecipeFromText(meta.description, meta.title || undefined, labels);
 		if (platform === "tiktok" && meta.description.length < 200) {
 			new Notice("Tiktok captions may be truncated in page metadata — double-check ingredient completeness.");
 		}
@@ -60,13 +64,17 @@ export async function submitUrl(url: string): Promise<SubmitUrlResult> {
 	return { kind: "success", recipe, warning };
 }
 
-export function submitText(text: string, titleOverride: string): ExtractedRecipe | null {
+export function submitText(
+	text: string,
+	titleOverride: string,
+	labels: ResolvedImportLabels,
+): ExtractedRecipe | null {
 	const trimmed = text.trim();
 	if (!trimmed) {
 		new Notice("Please paste some recipe text.");
 		return null;
 	}
-	return extractRecipeFromText(trimmed, titleOverride.trim() || undefined);
+	return extractRecipeFromText(trimmed, titleOverride.trim() || undefined, labels);
 }
 
 export function resolveDestinationFolder(settings: RecipeBoxSettings): string {
