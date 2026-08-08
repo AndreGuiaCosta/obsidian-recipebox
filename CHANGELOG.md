@@ -1,3 +1,38 @@
+## [0.1.10](https://github.com/AdamArcane/obsidian-recipebox/compare/0.1.10-beta.3...0.1.10) (2026-08-07)
+
+## [0.1.10-beta.3](https://github.com/AdamArcane/obsidian-recipebox/compare/0.1.10-beta.2...0.1.10-beta.3) (2026-08-01)
+
+### Features
+
+* **parser:** let a section heading end a RecipeMD method ([a340581](https://github.com/AdamArcane/obsidian-recipebox/commit/a340581c9ae6bf832bfdd4308b651da02572b752))
+* **recipe-view:** show the source link on desktop ([306e4d1](https://github.com/AdamArcane/obsidian-recipebox/commit/306e4d179588d2abdc77ed1d2b44456e0be2a24f))
+* **settings:** add a toggle for the recipe source display ([23dc887](https://github.com/AdamArcane/obsidian-recipebox/commit/23dc887e03e75993b8d5859b8a3f5a03ab5679ca))
+
+### Bug Fixes
+
+* **recipe-view:** stop a non-URL source from breaking the mobile Info tab ([5ab9681](https://github.com/AdamArcane/obsidian-recipebox/commit/5ab9681e74d382a5add89f209e03709bd54c3cdb))
+
+## [0.1.10-beta.2](https://github.com/AdamArcane/obsidian-recipebox/compare/0.1.10-beta.1...0.1.10-beta.2) (2026-07-31)
+
+## [0.1.10-beta.1](https://github.com/AdamArcane/obsidian-recipebox/compare/0.1.10-beta.0...0.1.10-beta.1) (2026-07-31)
+
+### Features
+
+* **parser:** read ingredients from a RecipeMD block when no heading exists ([f9df939](https://github.com/AdamArcane/obsidian-recipebox/commit/f9df939179b2b28b2a5f784f7b54aedd57ffd129))
+* **parser:** treat a RecipeMD note's method as instructions ([ec0c63b](https://github.com/AdamArcane/obsidian-recipebox/commit/ec0c63b9f10b8d99017915018fdaa8aa821e0089))
+
+### Bug Fixes
+
+* **parser:** follow RecipeMD on ingredient groups and the closing break ([fce288f](https://github.com/AdamArcane/obsidian-recipebox/commit/fce288f3d9d811548d0e962f6203f263c8c6c238))
+* **parser:** RecipeMD decimal notation and linked ingredient names ([0ab1947](https://github.com/AdamArcane/obsidian-recipebox/commit/0ab1947057e0ecdbbd4a82652fe13325193b31f6))
+
+## [0.1.10-beta.0](https://github.com/AdamArcane/obsidian-recipebox/compare/0.1.9...0.1.10-beta.0) (2026-07-31)
+
+### Bug Fixes
+
+* **parser:** strip paired single-asterisk emphasis from ingredient lines ([16796ca](https://github.com/AdamArcane/obsidian-recipebox/commit/16796cac753bcc918a3f6a93a1a8463d2aa3c52a))
+* **tests:** build lastMade fixtures from local dates, not UTC ([23b2e26](https://github.com/AdamArcane/obsidian-recipebox/commit/23b2e2644bfd31b08fd26057c8c1a4ab1bc0dac9))
+
 ## [0.1.9](https://github.com/AdamArcane/obsidian-recipebox/compare/v0.1.9-beta.7...v0.1.9) (2026-07-21)
 
 ## [0.1.9-beta.7](https://github.com/AdamArcane/obsidian-recipebox/compare/0.1.9-beta.6...0.1.9-beta.7) (2026-07-21)
