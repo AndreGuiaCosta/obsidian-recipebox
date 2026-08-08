@@ -80,6 +80,7 @@ export async function saveRecipe(
 	recipe: ExtractedRecipe,
 	folder: string,
 	settings: RecipeBoxSettings,
+	useRecipeMd: boolean,
 	onConflict: (path: string, proceed: () => Promise<void>) => void,
 	onSuccess: (filePath: string) => void,
 ): Promise<void> {
@@ -98,7 +99,7 @@ export async function saveRecipe(
 				const imagePath = await downloadRecipeImage(app, recipe.heroImage, recipe.title || "recipe", folderTrimmed);
 				if (imagePath) recipeToSave = { ...recipe, heroImage: imagePath };
 			}
-			const content = await buildRecipeNote(app, recipeToSave, settings);
+			const content = await buildRecipeNote(app, recipeToSave, settings, useRecipeMd);
 			await ensureParentFolders(app, filePath);
 			const existing = app.vault.getFileByPath(filePath);
 			if (existing) {

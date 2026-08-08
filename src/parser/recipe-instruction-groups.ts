@@ -4,6 +4,7 @@
  */
 import { InstructionGroup } from "../types";
 import { findHeadingIndex } from "./recipe-heading-search";
+import { markFencedLines } from "./code-fence";
 
 export interface InstructionSplit {
 	before: string;
@@ -54,9 +55,16 @@ function buildStep(lines: string[]): string {
  * Index of the first heading at or above `sectionLevel`, which is where the
  * method stops and trailing sections (Notes, Cook History, anything the user
  * added) begin. Returns lines.length when the method runs to the end.
+ *
+ * Lines inside a fenced code block are skipped: a shell snippet's `# comment`
+ * used to end the method there, silently turning the rest of the recipe into a
+ * trailing section. The mask is built over the whole array rather than from
+ * `from`, since the fence state at `from` depends on everything before it.
  */
-function findSectionBoundary(lines: string[], from: number, sectionLevel: number): number {
+export function findSectionBoundary(lines: string[], from: number, sectionLevel: number): number {
+	const fenced = markFencedLines(lines);
 	for (let i = from; i < lines.length; i++) {
+		if (fenced[i]) continue;
 		const hMatch = lines[i].match(HEADING_RE);
 		if (hMatch && hMatch[1].length <= sectionLevel) return i;
 	}
@@ -86,8 +94,20 @@ function collectGroups(lines: string[], sectionLevel: number): InstructionGroup[
 		currentRawLines = [];
 	}
 
-	for (const line of lines) {
-		const hMatch = line.match(HEADING_RE);
+	// Same fence exemption as findSectionBoundary, so a heading-looking line in a
+	// code block stays part of the step it belongs to instead of opening a
+	// sub-group. The mask covers only the region handed in rather than the whole
+	// note, which matches for both callers: the RecipeMD path passes a slice from
+	// index 0, and the heading path one starting just after the instructions
+	// heading. The heading path is exact unless findHeadingIndex matched a
+	// heading inside a code block, which it can, since that scan is not
+	// fence-aware. Left alone deliberately: it decides where every heading in
+	// every note is found, and this is not the change to widen that far.
+	const fenced = markFencedLines(lines);
+
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		const hMatch = fenced[i] ? null : line.match(HEADING_RE);
 		if (hMatch && hMatch[1].length > sectionLevel) {
 			flushGroup();
 			currentGroupHeading = hMatch[2].trim();
@@ -110,7 +130,7 @@ function collectGroups(lines: string[], sectionLevel: number): InstructionGroup[
 //
 // Deliberately a constant rather than derived from the note's own title, since
 // cleanNoteBody may already have stripped that h1 before this runs.
-const RECIPEMD_SECTION_LEVEL = 2;
+export const RECIPEMD_SECTION_LEVEL = 2;
 
 /**
  * RecipeMD's own reading of the method is "everything after the second thematic

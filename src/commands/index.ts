@@ -12,6 +12,7 @@ import { SuggestMealModal } from "../ui/modals/suggest-meal-modal";
 import { RecipeExportModal } from "../ui/modals/recipe-export-modal";
 import { ShareRecipeModal } from "../ui/modals/share-recipe-modal";
 import { isRecipeFile } from "../lifecycle/recipe-file-detection";
+import { canConvertToRecipeMd, runRecipeMdConversion } from "../recipemd/run-recipemd-conversion";
 import { RecipeView, RECIPE_VIEW_TYPE } from "../ui/recipe-view/recipe-view";
 
 export function registerCommands(plugin: RecipeBoxPlugin): void {
@@ -111,6 +112,21 @@ export function registerCommands(plugin: RecipeBoxPlugin): void {
 			if (!file || !isRecipeFile(plugin.app, file, plugin.settings)) return false;
 			if (checking) return true;
 			new RecipeExportModal(plugin.app, file, plugin.settings).open();
+			return true;
+		},
+	});
+
+	plugin.addCommand({
+		id: "convert-current-recipe-to-recipemd",
+		name: "Convert this recipe to RecipeMD",
+		checkCallback: (checking) => {
+			const file = plugin.app.workspace.getActiveFile();
+			if (!file || !isRecipeFile(plugin.app, file, plugin.settings)) return false;
+			// Hidden for notes that are already fenced, so the command never
+			// offers to convert something twice.
+			if (!canConvertToRecipeMd(plugin.app, file, plugin.settings)) return false;
+			if (checking) return true;
+			void runRecipeMdConversion(plugin.app, file, plugin.settings);
 			return true;
 		},
 	});

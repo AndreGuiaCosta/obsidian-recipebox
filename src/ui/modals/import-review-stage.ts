@@ -89,6 +89,7 @@ export function renderReviewStage(
 	initial: ExtractedRecipe,
 	folder: string,
 	warning: string | null,
+	useRecipeMd: boolean,
 	onBack: () => void,
 	onSaved: () => void,
 ): void {
@@ -218,6 +219,7 @@ export function renderReviewStage(
 				recipe,
 				folder,
 				settings,
+				useRecipeMd,
 				(path, proceed) => {
 					new ConfirmModal(
 						app,

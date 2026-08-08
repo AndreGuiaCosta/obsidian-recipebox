@@ -14,6 +14,7 @@ export interface InputStageState {
 	text: string;
 	titleOverride: string;
 	folder: string;
+	useRecipeMd: boolean;
 }
 
 export function renderInputStage(
@@ -84,6 +85,22 @@ export function renderInputStage(
 	folderInput.value = state.folder;
 	folderInput.addEventListener("input", () => { state.folder = folderInput.value; });
 	new FolderSuggest(app, folderInput);
+
+	// A configured custom template decides the note's whole shape, so the format
+	// choice has nothing to act on. Shown disabled rather than hidden so the
+	// reason is visible instead of the checkbox just being missing.
+	const customTemplate = settings.importerTemplatePath.trim() !== "";
+	const formatRow = folderSection.createEl("label", { cls: "rb-confirm-checkbox-row" });
+	const formatCheckbox = formatRow.createEl("input", { attr: { type: "checkbox" } });
+	formatCheckbox.checked = state.useRecipeMd && !customTemplate;
+	formatCheckbox.disabled = customTemplate;
+	formatRow.createSpan({
+		text: customTemplate
+			? "Save as RecipeMD (overridden by the custom template in settings)"
+			: "Save as RecipeMD (fenced format, instead of Ingredients/Instructions headings)",
+	});
+	formatCheckbox.addEventListener("change", () => { state.useRecipeMd = formatCheckbox.checked; });
+	if (customTemplate) state.useRecipeMd = false;
 
 	const importBtn = footerEl.createEl("button", { cls: "mod-cta", text: "Import" });
 	importBtn.addEventListener("click", () => { void (async () => {

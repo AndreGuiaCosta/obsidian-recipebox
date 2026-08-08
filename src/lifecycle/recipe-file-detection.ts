@@ -5,6 +5,7 @@
 import { App, MarkdownView, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import { RecipeBoxSettings } from "../settings/settings-types";
 import { RECIPE_VIEW_TYPE } from "../ui/recipe-view/recipe-view";
+import { addConvertToRecipeMdItem } from "../recipemd/recipemd-menu-item";
 import { listMarkdownFilesInRecipeFolders } from "../utils/vault-markdown-files";
 
 function normalizeTypeValues(raw: unknown): string[] {
@@ -101,16 +102,24 @@ export function registerContextMenu(
 	plugin.registerEvent(
 		plugin.app.workspace.on("file-menu", (menu, file, _source, leaf) => {
 			if (!(file instanceof TFile)) return;
-			if (leaf && leaf.view.getViewType() === RECIPE_VIEW_TYPE) return;
-			if (!isRecipeFile(plugin.app, file, settings())) return;
+			const current = settings();
+			if (!isRecipeFile(plugin.app, file, current)) return;
 
-			menu.addItem((item) => {
-				item.setTitle("Recipe mode")
-					.setIcon("book-open")
-					.onClick(() => {
-						if (leaf) openAsRecipe(leaf, file);
-					});
-			});
+			// The recipe-view guard is scoped to this item rather than applied as
+			// an early return for the whole handler: "Recipe mode" is meaningless
+			// when the recipe view is already showing, but converting the note
+			// underneath it is not. Returning early would have suppressed both.
+			if (!(leaf && leaf.view.getViewType() === RECIPE_VIEW_TYPE)) {
+				menu.addItem((item) => {
+					item.setTitle("Recipe mode")
+						.setIcon("book-open")
+						.onClick(() => {
+							if (leaf) openAsRecipe(leaf, file);
+						});
+				});
+			}
+
+			addConvertToRecipeMdItem(plugin.app, menu, file, current);
 		})
 	);
 }

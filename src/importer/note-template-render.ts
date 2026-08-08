@@ -41,12 +41,67 @@ total: {{totalTime}}
 {{notes}}
 `;
 
-const MAX_HEADING_DEPTH = 6;
+// RecipeMD separates title, ingredients and method with thematic breaks instead
+// of headings (https://recipemd.org/). Same frontmatter and the same trailing
+// notes section -- the spec has no element for notes, but a section-level
+// heading ends the method in this plugin's reader, so it survives the round
+// trip. The blank line above each fence is load-bearing: a `---` directly under
+// a text line is a setext heading, not a break.
+const RECIPEMD_TEMPLATE = `---
+{{recipeTypePropertyName}}: {{recipeType}}
+image: {{image}}
+source: {{sourceUrl}}
+servings: {{servings}}
+prep: {{prepTime}}
+cook: {{cookTime}}
+total: {{totalTime}}
+{{caloriesProperty}}: {{calories}}
+{{proteinProperty}}: {{protein}}
+{{fatProperty}}: {{fat}}
+{{carbsProperty}}: {{carbs}}
+{{allergensProperty}}:
+---
 
+# {{title}}
+
+{{description}}
+
+---
+
+{{ingredients}}
+
+---
+
+{{instructions}}
+
+## {{notesHeading}}
+
+{{notes}}
+`;
+
+const MAX_HEADING_DEPTH = 6;
+// Matches recipemd-sections.ts's fence pattern.
+const THEMATIC_BREAK = /^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/;
+// One deeper than RECIPEMD_SECTION_LEVEL. Kept as a literal rather than an
+// import so this file stays free of parser dependencies; the test asserts they
+// agree.
+const RECIPEMD_SUB_GROUP_DEPTH = 3;
+
+/**
+ * Heading depth for sub-group headings rendered at `tokenPos`, read off the
+ * template's own structure by walking back to whatever encloses the token.
+ *
+ * A thematic break encountered before any heading means the token sits inside a
+ * RecipeMD block, where the enclosing heading is the h1 title -- following it
+ * would emit level-2 sub-headings, and level 2 is exactly what the RecipeMD
+ * reader treats as the end of the method. So a fence pins the depth instead of
+ * the title's depth + 1.
+ */
 function subGroupHeadingPrefix(template: string, tokenPos: number): string {
 	const before = template.slice(0, tokenPos);
 	const lines = before.split("\n").reverse();
 	for (const line of lines) {
+		if (THEMATIC_BREAK.test(line)) return "#".repeat(RECIPEMD_SUB_GROUP_DEPTH);
 		const m = line.match(/^(#{1,6})\s/);
 		if (m) {
 			const depth = Math.min(m[1].length + 1, MAX_HEADING_DEPTH);
@@ -130,12 +185,19 @@ function renderTemplate(template: string, recipe: ExtractedRecipe, tokens: Recor
 	return result;
 }
 
+/**
+ * `useRecipeMd` selects between the two built-in templates. A configured custom
+ * template still wins over both -- pointing the importer at your own template is
+ * a deliberate choice about the note's whole shape, so a format checkbox should
+ * not quietly override it.
+ */
 export async function buildRecipeNote(
 	app: App,
 	recipe: ExtractedRecipe,
 	settings: RecipeBoxSettings,
+	useRecipeMd = false,
 ): Promise<string> {
-	let template = DEFAULT_TEMPLATE;
+	let template = useRecipeMd ? RECIPEMD_TEMPLATE : DEFAULT_TEMPLATE;
 	if (settings.importerTemplatePath) {
 		const customTemplate = await readNoteOrEmpty(app, settings.importerTemplatePath);
 		if (customTemplate) template = customTemplate;
