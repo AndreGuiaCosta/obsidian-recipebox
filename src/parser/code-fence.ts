@@ -4,8 +4,11 @@
  * heading, and treating it as one truncates the recipe at that point.
  */
 
-// Group 2 is the delimiter run, group 3 whatever follows it on the same line.
-const FENCE_RE = /^\s{0,3}(?:(`{3,}|~{3,}))(.*)$/;
+// Group 1 is the delimiter run, group 2 whatever follows it on the same line.
+// The info string is matched as [^\r\n]* with an optional trailing \r rather
+// than `.*$`: `.` never matches \r and `$` (no /m) demands true end of input, so
+// the old pattern failed on every line of a CRLF note and left the mask inert.
+const FENCE_RE = /^\s{0,3}(`{3,}|~{3,})([^\r\n]*)\r?$/;
 
 /**
  * Returns a per-line mask, true for every line of a fenced block including its
