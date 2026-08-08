@@ -104,7 +104,13 @@ function assemble(frontmatter: string, intro: string[], ingredients: string[], m
 	pushSection(trimBlankEdges(method));
 	pushSection(trimBlankEdges(trailing));
 
-	return `${frontmatter}${parts.join("\n")}\n`;
+	// splitFrontmatter carries the closing line ending, except when the note is
+	// nothing but frontmatter and ends without one. Re-adding it here means the
+	// closing `---` can never end up glued to the first body line, which would
+	// leave the block unterminated and silently stop the note being a recipe.
+	const fm = frontmatter && !frontmatter.endsWith("\n") ? `${frontmatter}\n` : frontmatter;
+
+	return `${fm}${parts.join("\n")}\n`;
 }
 
 export function convertNoteToRecipeMd(
@@ -115,7 +121,15 @@ export function convertNoteToRecipeMd(
 	const { frontmatter, body } = splitFrontmatter(raw);
 	const lines = body.split("\n");
 
-	const ing = findHeadingIndex(lines, settings.ingredientsHeading);
+	// Both section headings are located against the fence mask. Without it the
+	// converter anchored on a heading inside a fenced example, rewrote that line
+	// to `---` and left the real heading standing, so a note documenting recipe
+	// markup came back with its code block mangled and its steps read as
+	// ingredients. Everything downstream here was already fence-aware; this was
+	// the one scan that was not.
+	const fenced = markFencedLines(lines);
+
+	const ing = findHeadingIndex(lines, settings.ingredientsHeading, fenced);
 	if (ing.index < 0) {
 		// No ingredients heading at all: either it is already fenced, or there is
 		// nothing here this can work from.
@@ -123,7 +137,7 @@ export function convertNoteToRecipeMd(
 		return { kind: "unconvertible", reason: `No "${settings.ingredientsHeading}" heading to convert.` };
 	}
 
-	const instr = findHeadingIndex(lines, settings.instructionsHeading);
+	const instr = findHeadingIndex(lines, settings.instructionsHeading, fenced);
 	if (instr.index >= 0 && instr.index < ing.index) {
 		return { kind: "unconvertible", reason: `"${settings.instructionsHeading}" appears before "${settings.ingredientsHeading}".` };
 	}

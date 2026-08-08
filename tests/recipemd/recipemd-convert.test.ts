@@ -251,4 +251,54 @@ describe("convertNoteToRecipeMd", () => {
 		expect(after.ingredients).toEqual([{ heading: null, lines: ["- 400 g de grão", "- Sal q.b."] }]);
 		expect(after.instructions.flatMap(g => g.steps)).toEqual(["Cozinhe."]);
 	});
+
+	// Every other fixture here is LF, which is how the two bugs below reached a
+	// feature that rewrites the user's note in place.
+	describe("notes this must refuse to mangle", () => {
+		it("keeps CRLF frontmatter terminated when the body is LF", () => {
+			// A file touched by two editors ends up mixed like this. The closing ---
+			// used to be glued to the first body line, leaving the block unterminated
+			// so the note silently stopped being a recipe at all.
+			const raw = "---\r\ntags: Food\r\n---\r\n# Foo\n\n## Ingredients\n- a\n## Instructions\n1. Mix\n";
+
+			const out = convert(raw, "Foo");
+			expect(out).not.toContain("---# Foo");
+			expect(out.startsWith("---\r\ntags: Food\r\n---\r\n")).toBe(true);
+			// The frontmatter must still read back as frontmatter.
+			expect(stripFrontmatter(out)).not.toContain("tags: Food");
+		});
+
+		it("adds the missing line ending when the note is frontmatter only", () => {
+			const raw = "---\ntags: Food\n---";
+			const result = convertNoteToRecipeMd(raw, "Foo", settings);
+			// Nothing to convert, but the guard must hold if that ever changes.
+			expect(result.kind).toBe("unconvertible");
+		});
+
+		it("ignores a section heading that sits inside a fenced code block", () => {
+			// A note documenting recipe markup. The converter used to anchor on the
+			// fenced heading, rewrite that line to `---`, leave the real heading
+			// standing, and so turn the steps into ingredients on disk.
+			const raw = [
+				"# Foo", "",
+				"```md", "## Ingredients", "- fake", "```", "",
+				"## Ingredients", "", "- a", "- b", "",
+				"## Instructions", "", "1. Mix", "2. Bake", "",
+			].join("\n");
+
+			const out = convert(raw, "Foo");
+
+			// The fenced example survives byte-for-byte, and the real headings are
+			// the ones that anchored the conversion.
+			expect(out).toContain("```md\n## Ingredients\n- fake\n```");
+			expect(out).toBe("# Foo\n\n```md\n## Ingredients\n- fake\n```\n\n---\n\n- a\n- b\n\n---\n\n1. Mix\n2. Bake\n");
+
+			// Deliberately not asserted through reparse(): the read path is
+			// fence-blind by design (see recipe-instruction-groups.ts), so it picks
+			// "- fake" out of the fence here. It does that for the *original* note
+			// too, so it is a standing limitation of the reader rather than anything
+			// the conversion introduces. What matters is that the file on disk is
+			// correct RecipeMD instead of a mangled code block.
+		});
+	});
 });
