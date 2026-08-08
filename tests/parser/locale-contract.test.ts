@@ -105,5 +105,23 @@ describe.each(allLocales().map((l) => [l.id, l] as const))("%s locale contract",
 				}
 			}
 		});
+
+		it("keeps the method's section words out of the time labels", () => {
+			// The time scan reads the whole text, so a word that is both the method's
+			// heading and a time label makes the heading itself set a time: with
+			// "preparação" in both, "Preparação\n\nLeve ao forno 30 minutos" imported
+			// as a 30 minute prep time. Same shape as the unit/qualifier disjointness
+			// above, and the reason bare "preparação" and "confeção" are no longer
+			// time labels.
+			const labels = locale.importLabels;
+			if (!labels) return;
+			const sections = new Set((labels.instructionsSection ?? []).map((w) => normalisePhrase(w)));
+			for (const field of ["prepTime", "cookTime", "totalTime"] as const) {
+				for (const word of labels[field] ?? []) {
+					const folded = normalisePhrase(word);
+					expect(sections.has(folded), `${field}: "${word}" is also a method heading`).toBe(false);
+				}
+			}
+		});
 	});
 });

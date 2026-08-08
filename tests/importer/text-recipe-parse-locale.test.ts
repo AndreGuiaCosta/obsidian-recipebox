@@ -129,3 +129,76 @@ describe("locale layering", () => {
 		expect(extractRecipeFromText(text, undefined, ptLabels).totalTime).toBe(90);
 	});
 });
+
+/**
+ * Regressions from review. Each of these wrote a wrong number, or a stray
+ * heading, into the imported note.
+ */
+describe("label matching stays on word boundaries", () => {
+	it("does not read a stock cube as a calorie count", () => {
+		// "caldo" starts with "cal". The alternation had no boundary, so the
+		// calories label matched inside the word and [^\d]{0,15} walked forward to
+		// the next number in the line.
+		const text = [
+			"Sopa de legumes", "", "Ingredientes", "",
+			"- 1 caldo de carne 500 ml", "- 2 cenouras", "",
+			"Preparação", "", "1. Junte tudo e sirva.",
+		].join("\n");
+		expect(extractRecipeFromText(text, undefined, ptLabels).calories).toBeNull();
+	});
+
+	it("does not read 'reserve' as a servings label", () => {
+		const text = [
+			"Soup", "", "Ingredients", "", "- flour", "",
+			"Instructions", "", "1. reserve 2 tablespoons for later.",
+		].join("\n");
+		expect(extractRecipeFromText(text).servings).toBeNull();
+	});
+
+	it("still reads a real label that ends where a word ends", () => {
+		const text = [
+			"Bolo", "", "Ingredientes", "", "- farinha", "",
+			"Preparação", "", "1. Misture.", "", "Calorias: 650", "Doses: 4",
+		].join("\n");
+		const recipe = extractRecipeFromText(text, undefined, ptLabels);
+		expect(recipe.calories).toBe(650);
+		expect(recipe.servings).toBe("4");
+	});
+});
+
+describe("the method heading is not a time label", () => {
+	it("does not invent a prep time from the Preparação heading", () => {
+		const text = "Bolo\n\nIngredientes\n\n- farinha\n\nPreparação\n\nLeve ao forno 30 minutos.\n";
+		expect(extractRecipeFromText(text, undefined, ptLabels).prepTime).toBeNull();
+	});
+
+	it("still reads an explicit 'Tempo de preparação'", () => {
+		const text = "Bolo\n\nTempo de preparação: 20 minutos\n\nIngredientes\n\n- farinha\n\nPreparação\n\n1. Misture.\n";
+		expect(extractRecipeFromText(text, undefined, ptLabels).prepTime).toBe(20);
+	});
+});
+
+describe("the trailing metadata block leaves nothing behind", () => {
+	it("drops the block's own header along with its values", () => {
+		const text = [
+			"Bolo", "", "Ingredientes", "", "- farinha", "",
+			"Preparação", "", "1. Misture tudo.", "2. Leve ao forno.", "",
+			"Nutrição:", "Doses: 4", "Calorias: 650",
+		].join("\n");
+		const recipe = extractRecipeFromText(text, undefined, ptLabels);
+		expect(JSON.stringify(recipe.instructionGroups).toLowerCase()).not.toContain("nutri");
+		expect(recipe.instructionGroups.flatMap(g => g.items)).toEqual(["Misture tudo.", "Leve ao forno."]);
+		// The values themselves are still read as metadata.
+		expect(recipe.servings).toBe("4");
+		expect(recipe.calories).toBe(650);
+	});
+
+	it("leaves a one-word final step alone when no metadata follows it", () => {
+		const text = [
+			"Bolo", "", "Ingredientes", "", "- farinha", "",
+			"Preparação", "", "1. Misture tudo.", "2. Sirva.",
+		].join("\n");
+		const recipe = extractRecipeFromText(text, undefined, ptLabels);
+		expect(recipe.instructionGroups.flatMap(g => g.items)).toEqual(["Misture tudo.", "Sirva."]);
+	});
+});

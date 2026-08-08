@@ -65,3 +65,20 @@ export function buildLabelAlternation(words: readonly string[]): string {
 		.map((word) => stripAccents(word).replace(REGEX_METACHARS, "\\$&"))
 		.join("|");
 }
+
+/**
+ * The alternation with word boundaries, for the loose scans that hunt a label
+ * anywhere in the text. Without these a label matched inside a longer word:
+ * "caldo de carne 500 ml" hit the "cal" calories label and imported a stock
+ * cube as 500 calories, and "reserve 2 tablespoons" hit "serve" and set the
+ * servings. Requires the /u flag at the call site.
+ *
+ * Deliberately not \b, on two counts. \b is defined on ASCII word characters,
+ * so it breaks in the middle of an accented word. And a trailing \b never fires
+ * after a label that ends in a period, which the locale tables are free to
+ * contain ("q.b." is an established form elsewhere in this codebase). An
+ * explicit leading class plus a lookahead behaves correctly for both.
+ */
+export function buildLabelPattern(words: readonly string[]): string {
+	return `(?:^|[^\\p{L}\\d])(?:${buildLabelAlternation(words)})(?![\\p{L}\\d])`;
+}

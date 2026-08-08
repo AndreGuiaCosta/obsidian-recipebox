@@ -4,7 +4,7 @@
  */
 import { ExtractedRecipe, ImportedGroup } from "./recipe-extract-types";
 import { decodeHtmlEntities } from "./html-entity-decode";
-import { createSectionMatcher, buildLabelAlternation } from "./text-recipe-detect";
+import { createSectionMatcher, buildLabelAlternation, buildLabelPattern } from "./text-recipe-detect";
 import { BASE_IMPORT_LABELS, ResolvedImportLabels } from "./import-labels";
 import { stripAccents } from "../parser/phrase-normalise";
 
@@ -25,8 +25,8 @@ function timeToMinutes(value: string, unit: string): number | null {
 
 function extractLooseTime(text: string, words: readonly string[]): number | null {
 	const re = new RegExp(
-		`(?:${buildLabelAlternation(words)})[^\\d]{0,20}(\\d+(?:\\.\\d+)?)\\s*(min(?:utes?)?|hr?s?|hours?)`,
-		"i",
+		`${buildLabelPattern(words)}[^\\d]{0,20}(\\d+(?:\\.\\d+)?)\\s*(min(?:utes?)?|hr?s?|hours?)`,
+		"iu",
 	);
 	const m = re.exec(text);
 	return m ? timeToMinutes(m[1], m[2]) : null;
@@ -39,7 +39,7 @@ function extractLooseNumber(text: string, words: readonly string[]): number | nu
 	// silently returns NaN. That was a real bug back when these were
 	// hand-written fragments, and building the alternation here does not make
 	// the grouping any less necessary.
-	const re = new RegExp(`(?:${buildLabelAlternation(words)})[^\\d]{0,15}(\\d+)`, "i");
+	const re = new RegExp(`${buildLabelPattern(words)}[^\\d]{0,15}(\\d+)`, "iu");
 	const m = re.exec(text);
 	return m ? Number(m[1]) : null;
 }
@@ -101,7 +101,11 @@ function buildInstructionGroups(lines: string[]): ImportedGroup[] {
 			if (step) groups[groups.length - 1].items.push(step);
 		}
 	}
-	return groups.filter(g => g.name !== null || g.items.length > 0);
+	// A named group with no steps carries nothing, and it is how the heading of a
+	// trailing nutrition block reached the note: the values under it were trimmed
+	// away, the header itself was not, and "Nutrição:" was left standing as an
+	// empty sub-group in the imported Steps.
+	return groups.filter(g => g.items.length > 0);
 }
 
 /**
@@ -137,10 +141,23 @@ function trimTrailingMetadataLines(lines: string[], labels: ResolvedImportLabels
 		"i",
 	);
 
+	// The block's own header ("Nutrição:", "Calorias:") carries no number, so the
+	// value pattern above steps over it and it survived as a stray heading in the
+	// method. Only consumed as part of a trailing run that already matched, never
+	// on its own, so a method genuinely ending on a one-word line is left alone.
+	// A bare section word such as "Preparação" is not a metaWord and so cannot be
+	// eaten here.
+	const metaHeader = new RegExp(`^(?:${buildLabelAlternation(metaWords)})\\s*:?\\s*$`, "iu");
+
 	let end = lines.length;
+	let sawValue = false;
 	while (end > 0) {
 		const line = stripAccents(lines[end - 1].trim());
-		if (line && !metaLine.test(line)) break;
+		if (line && metaLine.test(line)) {
+			sawValue = true;
+		} else if (line && !(sawValue && metaHeader.test(line))) {
+			break;
+		}
 		end--;
 	}
 	return lines.slice(0, end);
@@ -190,8 +207,8 @@ export function extractRecipeFromText(
 
 	// Loose metadata from full text
 	const servingsMatch = new RegExp(
-		`(?:${buildLabelAlternation(labels.servings)})[^\\d]{0,15}(\\d+)`,
-		"i",
+		`${buildLabelPattern(labels.servings)}[^\\d]{0,15}(\\d+)`,
+		"iu",
 	).exec(scanText);
 	const servings = servingsMatch ? servingsMatch[1] : null;
 	const prepTime = extractLooseTime(scanText, labels.prepTime);
